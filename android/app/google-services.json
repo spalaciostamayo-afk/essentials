@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "495315994208",
+    "firebase_url": "https://essentials-47d9a-default-rtdb.firebaseio.com",
+    "project_id": "essentials-47d9a",
+    "storage_bucket": "essentials-47d9a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:495315994208:android:12485e5d8544d86ea96505",
+        "android_client_info": {
+          "package_name": "com.essentials.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsZTaIRkcwLZcP_TQKh6FuKD2zmxlZKzo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:495315994208:android:9d6409dd3af12a7ca96505",
+        "android_client_info": {
+          "package_name": "com.example.essentials"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsZTaIRkcwLZcP_TQKh6FuKD2zmxlZKzo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
