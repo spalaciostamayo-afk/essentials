@@ -1,4 +1,6 @@
+
 import 'package:flutter/material.dart';
+
 import '../models/food_model.dart';
 
 class FoodCard extends StatelessWidget {
@@ -13,435 +15,450 @@ class FoodCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  // ============================================================
-  // COLORES DE ESSENTIALS
-  // ============================================================
-
-  static const Color verdeOscuro = Color.fromARGB(255, 18, 56, 29);
-  static const Color verde = Color.fromARGB(255, 46, 125, 50);
-  static const Color beige = Color.fromARGB(255, 243, 232, 169);
+  static const Color verdePrincipal = Color(0xFF12381D);
+  static const Color verdeSecundario = Color(0xFF3F7048);
+  static const Color beigeFondo = Color(0xFFF3EED8);
+  static const Color blanco = Colors.white;
 
   // ============================================================
-  // IMAGEN SEGÚN CATEGORÍA
+  // IMAGEN GUARDADA EN FIREBASE
   // ============================================================
 
-  String get imageUrl {
-    switch (food.categoria.toLowerCase()) {
-      case "frutas":
-        return "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400";
+  String? get imagenPersonalizada {
+    final url = food.imagenUrl?.trim();
 
-      case "verduras":
-        return "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400";
+    if (url == null || url.isEmpty) return null;
 
-      case "carnes":
-        return "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=400";
+    final uri = Uri.tryParse(url);
 
-      case "lácteos":
-      case "lacteos":
-        return "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400";
-
-      case "bebidas":
-        return "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400";
-
-      default:
-        return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400";
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return null;
     }
+
+    return url;
   }
 
   // ============================================================
-  // COLOR DEL ESTADO
+  // NORMALIZAR TEXTO
   // ============================================================
 
-  Color get statusColor {
+  String normalizar(String texto) {
+    return texto
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[áàäâ]'), 'a')
+        .replaceAll(RegExp(r'[éèëê]'), 'e')
+        .replaceAll(RegExp(r'[íìïî]'), 'i')
+        .replaceAll(RegExp(r'[óòöô]'), 'o')
+        .replaceAll(RegExp(r'[úùüû]'), 'u')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  // ============================================================
+  // IMÁGENES DE RESPALDO POR PRODUCTO
+  // ============================================================
+
+  String get imagenRespaldo {
+    final nombre = normalizar(food.nombre);
+    final categoria = normalizar(food.categoria);
+
+    // Manzana y otras frutas.
+    if (nombre.contains('manzana')) {
+      return 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Manzana_Roja_Colombiana.jpg';
+    }
+
+    if (nombre.contains('pera') ||
+        nombre.contains('banano') ||
+        nombre.contains('banana') ||
+        nombre.contains('uva') ||
+        nombre.contains('naranja')) {
+      return 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400';
+    }
+
+    // Ducales Noel.
+    if (nombre.contains('ducales')) {
+      return 'https://d1tiendas.vtexassets.com/arquivos/ids/198966-150-150?aspect=true&height=150&v=639179630518830000&width=150';
+    }
+
+    // Saltín Noel.
+    if (nombre.contains('saltin')) {
+      return 'https://exitocol.vtexassets.com/arquivos/ids/34385378/Galleta-Tradicional-Pqt-X-9-Pqts-Personales-839016_a.jpg?v=639211341607330000';
+    }
+
+    // Campi para untar.
+    if (nombre.contains('campi')) {
+      return 'https://exitocol.vtexassets.com/arquivos/ids/34464969/Mantequilla-Esparcible-Con-Sal-X-500-gr-102611_a.jpg?v=639213811047100000';
+    }
+
+    // Otros alimentos.
+    if (categoria.contains('fruta')) {
+      return 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=400';
+    }
+
+    if (categoria.contains('verdura')) {
+      return 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400';
+    }
+
+    if (categoria.contains('carne')) {
+      return 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=400';
+    }
+
+    if (categoria.contains('bebida')) {
+      return 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=400';
+    }
+
+    if (categoria.contains('grano') ||
+        categoria.contains('cereal')) {
+      return 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400';
+    }
+
+    if (categoria.contains('snack') ||
+        categoria.contains('galleta')) {
+      return 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400';
+    }
+
+    if (categoria.contains('lacteo') ||
+        nombre.contains('mantequilla') ||
+        nombre.contains('margarina')) {
+      return 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400';
+    }
+
+    return 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400';
+  }
+
+  // ============================================================
+  // ESTADO DE VENCIMIENTO
+  // ============================================================
+
+  Color get colorEstado {
     if (food.diasRestantes < 0) {
       return Colors.red.shade700;
     }
 
-    if (food.diasRestantes <= 2) {
-      return Colors.red.shade600;
+    if (food.diasRestantes <= 3) {
+      return Colors.orange.shade800;
     }
 
-    if (food.diasRestantes <= 5) {
-      return Colors.orange.shade700;
+    if (food.diasRestantes <= 7) {
+      return Colors.amber.shade800;
     }
 
-    return verde;
+    return verdeSecundario;
   }
 
-  // ============================================================
-  // TEXTO DEL ESTADO
-  // ============================================================
-
-  String get statusText {
+  String get textoEstado {
     if (food.diasRestantes < 0) {
-      return "Vencido";
+      return 'Vencido';
     }
 
     if (food.diasRestantes == 0) {
-      return "Vence hoy";
+      return 'Vence hoy';
     }
 
     if (food.diasRestantes == 1) {
-      return "Vence mañana";
+      return 'Vence mañana';
     }
 
-    return "Vence en ${food.diasRestantes} días";
+    return 'Vence en ${food.diasRestantes} días';
   }
 
-  // ============================================================
-  // PROGRESO
-  // ============================================================
-
-  double get progress {
-    if (food.diasRestantes < 0) {
-      return 0.05;
-    }
-
-    if (food.diasRestantes <= 2) {
-      return 0.20;
-    }
-
-    if (food.diasRestantes <= 5) {
-      return 0.50;
-    }
-
-    return 0.90;
+  double get progresoVencimiento {
+    if (food.diasRestantes < 0) return 1.0;
+    if (food.diasRestantes <= 3) return 0.85;
+    if (food.diasRestantes <= 7) return 0.60;
+    if (food.diasRestantes <= 14) return 0.35;
+    return 0.15;
   }
 
   // ============================================================
   // ICONO DE CATEGORÍA
   // ============================================================
 
-  IconData get categoryIcon {
-    switch (food.categoria.toLowerCase()) {
-      case "frutas":
-        return Icons.apple;
+  IconData get iconoCategoria {
+    final categoria = normalizar(food.categoria);
 
-      case "verduras":
-        return Icons.eco;
-
-      case "carnes":
-        return Icons.restaurant;
-
-      case "lácteos":
-      case "lacteos":
-        return Icons.local_drink;
-
-      case "bebidas":
-        return Icons.local_cafe;
-
-      default:
-        return Icons.fastfood;
+    if (categoria.contains('fruta')) {
+      return Icons.apple;
     }
+
+    if (categoria.contains('verdura')) {
+      return Icons.eco;
+    }
+
+    if (categoria.contains('lacteo')) {
+      return Icons.egg_alt_outlined;
+    }
+
+    if (categoria.contains('carne')) {
+      return Icons.set_meal;
+    }
+
+    if (categoria.contains('bebida')) {
+      return Icons.local_drink_outlined;
+    }
+
+    if (categoria.contains('grano') ||
+        categoria.contains('cereal')) {
+      return Icons.grain;
+    }
+
+    if (categoria.contains('snack') ||
+        categoria.contains('galleta')) {
+      return Icons.cookie_outlined;
+    }
+
+    return Icons.kitchen_outlined;
   }
 
   // ============================================================
-  // BUILD
+  // FORMATO DE FECHA
+  // ============================================================
+
+  String get fechaFormateada {
+    final fecha = food.fechaVencimiento;
+
+    final dia = fecha.day.toString().padLeft(2, '0');
+    final mes = fecha.month.toString().padLeft(2, '0');
+    final anio = fecha.year.toString();
+
+    return '$dia/$mes/$anio';
+  }
+
+  // ============================================================
+  // MOSTRAR IMAGEN
+  // ============================================================
+
+  Widget construirImagen(String url, {bool esRespaldo = false}) {
+    return Image.network(
+      url,
+      width: 88,
+      height: 100,
+      fit: BoxFit.contain,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+
+        return Container(
+          width: 88,
+          height: 100,
+          color: beigeFondo,
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: verdePrincipal,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        // Solo intenta la imagen de respaldo una vez.
+        if (!esRespaldo && url != imagenRespaldo) {
+          return construirImagen(
+            imagenRespaldo,
+            esRespaldo: true,
+          );
+        }
+
+        return Container(
+          width: 88,
+          height: 100,
+          color: beigeFondo,
+          alignment: Alignment.center,
+          child: Icon(
+            iconoCategoria,
+            color: verdePrincipal,
+            size: 38,
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // TARJETA DEL ALIMENTO
   // ============================================================
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final imagen = imagenPersonalizada ?? imagenRespaldo;
+
+    return Card(
+      color: blanco,
+      elevation: 2,
       margin: const EdgeInsets.symmetric(
-        horizontal: 4,
-        vertical: 7,
+        horizontal: 12,
+        vertical: 6,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: const Color(0xFFE8E8E8),
-          width: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: verdePrincipal.withValues(alpha: 0.08),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ==================================================
-            // IMAGEN
-            // ==================================================
-
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Image.network(
-                    imageUrl,
-                    width: 82,
-                    height: 82,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 82,
-                        height: 82,
-                        decoration: BoxDecoration(
-                          color: beige.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Icon(
-                          categoryIcon,
-                          color: verdeOscuro,
-                          size: 34,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // Indicador de estado
-                Positioned(
-                  top: 6,
-                  left: 6,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 88,
+                height: 100,
+                color: beigeFondo,
+                alignment: Alignment.center,
+                child: construirImagen(imagen),
+              ),
             ),
-
-            const SizedBox(width: 14),
-
-            // ==================================================
-            // INFORMACIÓN
-            // ==================================================
-
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ============================================
-                  // NOMBRE + MENÚ
-                  // ============================================
-
+                  Text(
+                    food.nombre,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: verdePrincipal,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Icon(
+                        iconoCategoria,
+                        size: 16,
+                        color: verdeSecundario,
+                      ),
+                      const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          food.nombre,
+                          food.categoria,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 16,
+                        color: verdeSecundario,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          'Cantidad: ${food.cantidad}',
                           style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1F2937),
+                            color: verdePrincipal,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 4),
-
-                      SizedBox(
-                        width: 34,
-                        height: 34,
-                        child: PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(
-                            Icons.more_horiz,
-                            color: Color(0xFF6B7280),
-                            size: 22,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          onSelected: (value) {
-                            if (value == "editar") {
-                              onEdit();
-                            }
-
-                            if (value == "eliminar") {
-                              onDelete();
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: "editar",
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.edit_outlined,
-                                    color: verdeOscuro,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text("Editar"),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: "eliminar",
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text("Eliminar"),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 4),
-
-                  // ============================================
-                  // CATEGORÍA
-                  // ============================================
-
+                  const SizedBox(height: 7),
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: beige.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              categoryIcon,
-                              size: 13,
-                              color: verdeOscuro,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              food.categoria,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: verdeOscuro,
-                              ),
-                            ),
-                          ],
-                        ),
+                      Icon(
+                        Icons.event_outlined,
+                        size: 16,
+                        color: colorEstado,
                       ),
-
-                      const Spacer(),
-
-                      // CANTIDAD
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.inventory_2_outlined,
-                            size: 15,
-                            color: Color(0xFF6B7280),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          fechaFormateada,
+                          style: TextStyle(
+                            color: colorEstado,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "${food.cantidad}",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // ============================================
-                  // ESTADO
-                  // ============================================
-
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: statusColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const Spacer(),
-
-                      Text(
-                        "${food.fechaVencimiento.day.toString().padLeft(2, '0')}/"
-                        "${food.fechaVencimiento.month.toString().padLeft(2, '0')}/"
-                        "${food.fechaVencimiento.year}",
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 9),
-
-                  // ============================================
-                  // BARRA DE PROGRESO
-                  // ============================================
-
+                  const SizedBox(height: 7),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
-                      value: progress,
+                      value: progresoVencimiento,
                       minHeight: 5,
-                      backgroundColor: const Color(0xFFEDEDED),
-                      color: statusColor,
+                      backgroundColor: beigeFondo,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        colorEstado,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    textoEstado,
+                    style: TextStyle(
+                      color: colorEstado,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Opciones del alimento',
+              icon: const Icon(
+                Icons.more_vert,
+                color: verdePrincipal,
+              ),
+              onSelected: (opcion) {
+                if (opcion == 'editar') {
+                  onEdit();
+                } else if (opcion == 'eliminar') {
+                  onDelete();
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'editar',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_outlined,
+                        color: verdePrincipal,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Editar'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'eliminar',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Eliminar'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),

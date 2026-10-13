@@ -1,21 +1,24 @@
+
 import 'package:flutter/material.dart';
-
-import '../models/food_model.dart';
-
-
-import '../services/food_service.dart';
-
-import '../data/recipes_data.dart';
-
-import '../widgets/food_card.dart';
-import '../widgets/stats_card.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/recipe_card.dart';
+import '../models/food_model.dart';
+import '../services/food_service.dart';
+import '../data/recipes_data.dart';
+import '../widgets/food_card.dart';
+import '../bluetooth_screen.dart';
 
 import 'add_food_screen.dart';
 import 'edit_food_screen.dart';
 import 'statistics_screen.dart';
 import 'recipe_detail_screen.dart';
 import 'profile_screen.dart';
+
+const Color verdePrincipal = Color(0xFF12381D);
+const Color verdeSecundario = Color(0xFF3F7048);
+const Color beigeFondo = Color(0xFFF3EED8);
+const Color blancoTarjeta = Colors.white;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,16 +29,180 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int currentIndex = 0;
+  late Future<String> tipoCuentaFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    tipoCuentaFuture = cargarTipoCuenta();
+  }
+
+  Future<String> cargarTipoCuenta() async {
+    try {
+      final usuario = FirebaseAuth.instance.currentUser;
+
+      if (usuario == null) return 'hogar';
+
+      final documento = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(usuario.uid)
+          .get();
+
+      final tipo = documento.data()?['tipoCuenta']
+          ?.toString()
+          .toLowerCase()
+          .trim();
+
+      if (tipo == null || tipo.isEmpty) return 'hogar';
+      if (tipo.contains('colegio')) return 'colegio';
+      if (tipo.contains('empresa')) return 'empresa';
+
+      return 'hogar';
+    } catch (_) {
+      return 'hogar';
+    }
+  }
+
+  void abrirAgregarAlimento() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AddFoodScreen(),
+      ),
+    );
+  }
+
+  void abrirBluetooth() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const BluetoothScreen(),
+      ),
+    );
+  }
+
+  void abrirPerfil() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileScreen(),
+      ),
+    );
+  }
+
+  void abrirEstadisticas([String filtro = 'Todos']) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StatisticsScreen(
+          initialFilter: filtro,
+        ),
+      ),
+    );
+  }
+
+  Future<void> eliminarAlimento(FoodModel food) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Eliminar alimento'),
+          content: Text(
+            '¿Quieres eliminar "${food.nombre}" de tu inventario?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text(
+                'Eliminar',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      await FoodService.deleteFood(food.id);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${food.nombre} eliminado correctamente.'),
+          backgroundColor: verdePrincipal,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo eliminar el alimento: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<FoodModel>>(
       stream: FoodService.getFoods(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            backgroundColor: beigeFondo,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off,
+                      size: 48,
+                      color: verdePrincipal,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No se pudieron cargar los alimentos.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          tipoCuentaFuture = cargarTipoCuenta();
+                        });
+                      },
+                      child: const Text('Intentar de nuevo'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         if (!snapshot.hasData) {
           return const Scaffold(
+            backgroundColor: beigeFondo,
             body: Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: verdePrincipal,
+              ),
             ),
           );
         }
@@ -44,14 +211,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final totalFoods = foods.length;
 
-        final expiredFoods = foods.where((food) {
-          return food.diasRestantes < 0;
-        }).length;
+        final expiredFoods = foods
+            .where((food) => food.diasRestantes < 0)
+            .length;
 
-        final expiringFoods = foods.where((food) {
-          return food.diasRestantes >= 0 &&
-              food.diasRestantes <= 3;
-        }).length;
+        final expiringFoods = foods
+            .where(
+              (food) =>
+                  food.diasRestantes >= 0 &&
+                  food.diasRestantes <= 3,
+            )
+            .length;
 
         final recetasDisponibles = recipes.where((recipe) {
           int coincidencias = 0;
@@ -59,8 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
           for (final ingrediente in recipe.ingredients) {
             if (foods.any(
               (food) =>
-                  food.nombre.toLowerCase() ==
-                  ingrediente.toLowerCase(),
+                  food.nombre.trim().toLowerCase() ==
+                  ingrediente.trim().toLowerCase(),
             )) {
               coincidencias++;
             }
@@ -69,421 +239,501 @@ class _HomeScreenState extends State<HomeScreen> {
           return coincidencias >= 2;
         }).toList();
 
-        return Scaffold(
-          backgroundColor: const Color(0xffF6F8FB),
+        return FutureBuilder<String>(
+          future: tipoCuentaFuture,
+          builder: (context, tipoSnapshot) {
+            final tipoCuenta = tipoSnapshot.data ?? 'hogar';
 
-          appBar: AppBar(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
-            title: const Text("Essentials"),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.person),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ProfileScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+            return Scaffold(
+              backgroundColor: beigeFondo,
 
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                SizedBox(
-                  width: double.infinity,
-
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddFoodScreen(),
-                        ),
-                      );
-                    },
-
-                    icon: const Icon(Icons.add),
-
-                    label: const Text(
-                      "Agregar alimento",
-                    ),
-
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                      ),
-
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                const Text(
-                  "Mis alimentos",
-
+              appBar: AppBar(
+                backgroundColor: verdePrincipal,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                centerTitle: true,
+                title: const Text(
+                  'ESSENTIALS',
                   style: TextStyle(
-                    fontSize: 24,
                     fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
                   ),
                 ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.bluetooth),
+                    tooltip: 'Conectar ESP32',
+                    onPressed: abrirBluetooth,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.person_outline),
+                    tooltip: 'Mi perfil',
+                    onPressed: abrirPerfil,
+                  ),
+                ],
+              ),
 
-                const SizedBox(height: 15),
-
-                if (foods.isEmpty)
-                  Container(
-                    width: double.infinity,
-
-                    padding: const EdgeInsets.all(30),
-
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(20),
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // BIENVENIDA
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: verdePrincipal,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '¡Bienvenido a ESSENTIALS!',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 21,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 9),
+                                Text(
+                                  tipoCuenta == 'colegio'
+                                      ? 'Organiza tus refrigerios y controla tus existencias.'
+                                      : tipoCuenta == 'empresa'
+                                          ? 'Administra tus productos de forma sencilla.'
+                                          : 'Cuida tus alimentos y aprovecha cada producto.',
+                                  style: const TextStyle(
+                                    color: beigeFondo,
+                                    fontSize: 14,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.eco_rounded,
+                            color: beigeFondo,
+                            size: 55,
+                          ),
+                        ],
+                      ),
                     ),
 
-                    child: const Center(
-                      child: Text(
-                        "Aún no has agregado alimentos.",
+                    const SizedBox(height: 24),
 
-                        style: TextStyle(
-                          fontSize: 17,
-                          color: Colors.grey,
+                    // INVENTARIO: ÚNICO CATÁLOGO REAL
+                    const Text(
+                      'Mi inventario',
+                      style: TextStyle(
+                        fontSize: 23,
+                        fontWeight: FontWeight.bold,
+                        color: verdePrincipal,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Consulta y administra los alimentos que tienes registrados.',
+                      style: TextStyle(
+                        color: Colors.black54,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: abrirAgregarAlimento,
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: const Text(
+                          'Registrar alimento',
+                          textAlign: TextAlign.center,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: verdePrincipal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 17,
+                            horizontal: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
                       ),
                     ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
 
-                    physics:
-                        const NeverScrollableScrollPhysics(),
+                    const SizedBox(height: 20),
 
-                    itemCount: foods.length,
-
-                    itemBuilder: (context, index) {
-                      final food = foods[index];
-
-                      return FoodCard(
-                        food: food,
-
-                        onEdit: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  EditFoodScreen(
-                                food: food,
+                    // ALIMENTOS REGISTRADOS
+                    if (foods.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: blancoTarjeta,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              color: verdeSecundario,
+                              size: 48,
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              'Tu inventario está vacío',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: verdePrincipal,
                               ),
                             ),
-                          );
-                        },
-
-                        onDelete: () {
-                          FoodService.deleteFood(
-                            food.id,
-                          );
-                        },
-                      );
-                    },
-                  ),
-
-                const SizedBox(height: 30),
-
-                const Text(
-                  "Resumen",
-
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 15),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatsCard(
-                        title: "Alimentos",
-                        value: totalFoods.toString(),
-                        icon: Icons.inventory_2,
-                        color: Colors.green,
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: StatsCard(
-                        title: "Por vencer",
-                        value: expiringFoods.toString(),
-                        icon:
-                            Icons.warning_amber_rounded,
-                        color: Colors.orange,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatsCard(
-                        title: "Vencidos",
-                        value: expiredFoods.toString(),
-                        icon: Icons.cancel,
-                        color: Colors.red,
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: StatsCard(
-                        title: "Recetas",
-                        value: recetasDisponibles
-                            .length
-                            .toString(),
-                        icon: Icons.restaurant_menu,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 35),
-
-                Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
-
-                  children: [
-                    const Text(
-                      "Recetas recomendadas",
-
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const StatisticsScreen(),
-                          ),
-                        );
-                      },
-
-                      child: const Text(
-                        "Ver estadísticas",
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
-                SizedBox(
-                  height: 340,
-
-                  child: recetasDisponibles.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "No hay recetas disponibles con tus alimentos.",
-
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey,
+                            SizedBox(height: 6),
+                            Text(
+                              'Registra tu primer alimento para comenzar.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.black54),
                             ),
+                          ],
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: foods.length,
+                        itemBuilder: (context, index) {
+                          final food = foods[index];
+
+                          return FoodCard(
+                            food: food,
+                            onEdit: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditFoodScreen(
+                                    food: food,
+                                  ),
+                                ),
+                              );
+                            },
+                            onDelete: () => eliminarAlimento(food),
+                          );
+                        },
+                      ),
+
+                    const SizedBox(height: 30),
+
+                    // ESTADÍSTICAS INTERACTIVAS
+                    const Text(
+                      'Resumen de inventario',
+                      style: TextStyle(
+                        fontSize: 23,
+                        fontWeight: FontWeight.bold,
+                        color: verdePrincipal,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Pulsa una tarjeta para consultar los productos.',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    const SizedBox(height: 14),
+
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _tarjetaEstadisticaInicio(
+                            titulo: 'Alimentos',
+                            cantidad: totalFoods,
+                            icono: Icons.inventory_2_outlined,
+                            color: verdeSecundario,
+                            onTap: () => abrirEstadisticas('Todos'),
                           ),
-                        )
-                      : ListView.builder(
-                          scrollDirection:
-                              Axis.horizontal,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _tarjetaEstadisticaInicio(
+                            titulo: 'Por vencer',
+                            cantidad: expiringFoods,
+                            icono: Icons.warning_amber_rounded,
+                            color: Colors.orange.shade800,
+                            onTap: () => abrirEstadisticas('Por vencer'),
+                          ),
+                        ),
+                      ],
+                    ),
 
-                          itemCount:
-                              recetasDisponibles.length,
+                    const SizedBox(height: 12),
 
-                          itemBuilder:
-                              (context, index) {
-                            final recipe =
-                                recetasDisponibles[
-                                    index];
-
-                            return RecipeCard(
-                              imageUrl: recipe.image,
-
-                              title: recipe.title,
-
-                              time: recipe.time,
-
-                              difficulty:
-                                  recipe.difficulty,
-
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        RecipeDetailScreen(
-                                      recipe: recipe,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _tarjetaEstadisticaInicio(
+                            titulo: 'Vencidos',
+                            cantidad: expiredFoods,
+                            icono: Icons.cancel_outlined,
+                            color: Colors.red.shade700,
+                            onTap: () => abrirEstadisticas('Vencidos'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _tarjetaEstadisticaInicio(
+                            titulo: 'Recetas',
+                            cantidad: recetasDisponibles.length,
+                            icono: Icons.restaurant_menu,
+                            color: Colors.blueGrey,
+                            onTap: () {
+                              if (recetasDisponibles.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Agrega alimentos para descubrir recetas.',
                                     ),
                                   ),
                                 );
-                              },
-                            );
-                          },
-                        ),
-                ),
-
-                const SizedBox(height: 35),
-
-                Container(
-                  width: double.infinity,
-
-                  padding: const EdgeInsets.all(24),
-
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-
-                    borderRadius:
-                        BorderRadius.circular(22),
-                  ),
-
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.eco,
-                            color: Colors.green,
-                            size: 34,
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RecipeDetailScreen(
+                                      recipe: recetasDisponibles.first,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
                           ),
+                        ),
+                      ],
+                    ),
 
-                          SizedBox(width: 10),
+                    const SizedBox(height: 30),
 
-                          Text(
-                            "Impacto ambiental",
-
+                    // RECETAS RECOMENDADAS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Recetas recomendadas',
                             style: TextStyle(
-                              fontSize: 22,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontSize: 21,
+                              fontWeight: FontWeight.bold,
+                              color: verdePrincipal,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        TextButton(
+                          onPressed: () => abrirEstadisticas(),
+                          child: const Text(
+                            'Estadísticas',
+                            style: TextStyle(color: verdePrincipal),
+                          ),
+                        ),
+                      ],
+                    ),
 
-                      const SizedBox(height: 15),
+                    const SizedBox(height: 12),
 
-                      const Text(
-                        "Controlando las fechas de vencimiento reduces el desperdicio de alimentos y contribuyes al cuidado del medio ambiente.",
+                    SizedBox(
+                      height: 340,
+                      child: recetasDisponibles.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Agrega alimentos para descubrir recetas.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                            )
+                          : ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: recetasDisponibles.length,
+                              itemBuilder: (context, index) {
+                                final recipe = recetasDisponibles[index];
 
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
-                          height: 1.5,
+                                return RecipeCard(
+                                  imageUrl: recipe.image,
+                                  title: recipe.title,
+                                  time: recipe.time,
+                                  difficulty: recipe.difficulty,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => RecipeDetailScreen(
+                                          recipe: recipe,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    // CONSEJO PARA REDUCIR EL DESPERDICIO
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: verdeSecundario.withValues(alpha: 0.20),
                         ),
                       ),
-
-                      const SizedBox(height: 18),
-
-                      Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.favorite,
-                            color: Colors.green,
-                          ),
-
-                          const SizedBox(width: 8),
-
-                          Expanded(
-                            child: Text(
-                              "Actualmente tienes $expiredFoods alimentos vencidos y $expiringFoods próximos a vencer.",
-
-                              style:
-                                  const TextStyle(
-                                fontSize: 15,
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.eco_rounded,
+                                color: verdeSecundario,
+                                size: 32,
                               ),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Cuidemos los alimentos',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: verdePrincipal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Controlar las fechas de vencimiento ayuda a reducir el desperdicio y a aprovechar mejor cada producto.',
+                            style: TextStyle(
+                              fontSize: 15,
+                              height: 1.5,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          Text(
+                            'Tienes $expiredFoods alimentos vencidos y $expiringFoods próximos a vencer.',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: verdePrincipal,
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: currentIndex,
-
-            onDestinationSelected: (index) {
-              if (index == currentIndex) {
-                return;
-              }
-
-              if (index == 1) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        const StatisticsScreen(),
-                  ),
-                );
-              }
-
-              setState(() {
-                currentIndex = index;
-              });
-            },
-
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home),
-                label: "Inicio",
               ),
 
-              NavigationDestination(
-                icon: Icon(Icons.bar_chart),
-                label: "Estadísticas",
+              // NAVEGACIÓN INFERIOR
+              bottomNavigationBar: NavigationBar(
+                backgroundColor: Colors.white,
+                indicatorColor: beigeFondo,
+                selectedIndex: currentIndex,
+                onDestinationSelected: (index) {
+                  if (index == 0) {
+                    setState(() => currentIndex = 0);
+                  } else {
+                    setState(() => currentIndex = 1);
+                    abrirEstadisticas();
+                  }
+                },
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'Inicio',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.bar_chart_outlined),
+                    selectedIcon: Icon(Icons.bar_chart),
+                    label: 'Estadísticas',
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _tarjetaEstadisticaInicio({
+    required String titulo,
+    required int cantidad,
+    required IconData icono,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 120),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: color.withAlpha(45),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icono, color: color, size: 28),
+              const SizedBox(height: 10),
+              Text(
+                titulo,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                '$cantidad',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Ver detalles',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black54,
+                ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

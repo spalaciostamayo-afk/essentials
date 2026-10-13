@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:essentials/services/firebase_service.dart';
 
@@ -16,29 +17,36 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
 
   bool obscurePassword = true;
+  bool loading = false;
 
   static const Color verdePrincipal = Color(0xFF12381D);
   static const Color verdeClaro = Color(0xFF3F7048);
-  static const Color beigeFondo = Color.fromARGB(255, 243, 232, 169);
-  static const Color blancoTarjeta = Color(0xFFFFFFFF);
-  static const Color textoPrincipal = Color(0xFF1F1F1F);
-  static const Color textoSecundario = Color(0xFF6B7280);
+  static const Color beigeFondo = Color(0xFFF3EED8);
+  static const Color textoPrincipal = Color(0xFF1F2921);
+  static const Color textoSecundario = Color(0xFF68736A);
 
   Future<void> login() async {
-    if (emailController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty) {
+    if (loading) return;
+
+    final email = emailController.text.trim();
+    final password = passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Completa todos los campos"),
+          content: Text('Completa todos los campos.'),
+          backgroundColor: verdePrincipal,
         ),
       );
       return;
     }
 
+    setState(() => loading = true);
+
     try {
       await FirebaseService.login(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
       if (!mounted) return;
@@ -54,10 +62,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+          backgroundColor: Colors.red.shade700,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -68,8 +82,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Escribe tu correo electrónico para recuperar tu contraseña.",
+            'Escribe tu correo electrónico para recuperar tu contraseña.',
           ),
+          backgroundColor: verdePrincipal,
         ),
       );
       return;
@@ -83,9 +98,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Te enviamos un enlace para restablecer tu contraseña.",
+            'Te enviamos un enlace para restablecer tu contraseña.',
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: verdePrincipal,
         ),
       );
     } catch (e) {
@@ -93,8 +108,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+          backgroundColor: Colors.red.shade700,
         ),
       );
     }
@@ -107,325 +124,374 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  InputDecoration decoracionCampo({
+    required String etiqueta,
+    required String sugerencia,
+    required IconData icono,
+    Widget? sufijo,
+  }) {
+    return InputDecoration(
+      labelText: etiqueta,
+      hintText: sugerencia,
+      prefixIcon: Icon(
+        icono,
+        color: verdePrincipal,
+      ),
+      suffixIcon: sufijo,
+      filled: true,
+      fillColor: const Color(0xFFF9FAF6),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 18,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: Color(0xFFE0E5DC),
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: Color(0xFFE0E5DC),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: verdePrincipal,
+          width: 1.8,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 700;
+    final ancho = MediaQuery.of(context).size.width;
+    final esMovil = ancho < 600;
 
     return Scaffold(
       backgroundColor: beigeFondo,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 30,
-            ),
-            child: Container(
-              width: isMobile ? double.infinity : 500,
-              padding: EdgeInsets.all(isMobile ? 25 : 35),
-              decoration: BoxDecoration(
-                color: blancoTarjeta,
-                borderRadius: BorderRadius.circular(35),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(25),
-                    blurRadius: 25,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // ==============================
-                  // LOGO
-                  // ==============================
-
-                  Container(
-                    width: isMobile ? 120 : 140,
-                    height: isMobile ? 120 : 140,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: beigeFondo,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(15),
-                          blurRadius: 12,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Icon(
-                            Icons.eco,
-                            size: 65,
-                            color: verdePrincipal,
-                          );
-                        },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Column(
+                  children: [
+                    // CABECERA VERDE
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.only(
+                        top: esMovil ? 35 : 45,
+                        bottom: esMovil ? 38 : 48,
+                        left: 24,
+                        right: 24,
                       ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  // ==============================
-                  // NOMBRE
-                  // ==============================
-
-                  const Text(
-                    "ESSENTIALS",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                      color: textoPrincipal,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  const Text(
-                    "Gestiona tus alimentos sin desperdicios",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textoSecundario,
-                      fontSize: 16,
-                      height: 1.4,
-                    ),
-                  ),
-
-                  const SizedBox(height: 35),
-
-                  // ==============================
-                  // CORREO
-                  // ==============================
-
-                  TextField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: "Correo electrónico",
-                      hintText: "ejemplo@correo.com",
-                      prefixIcon: const Icon(
-                        Icons.email_outlined,
+                      decoration: const BoxDecoration(
                         color: verdePrincipal,
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF9F9F7),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE0E0E0),
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(38),
+                          bottomRight: Radius.circular(38),
                         ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: verdePrincipal,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ==============================
-                  // CONTRASEÑA
-                  // ==============================
-
-                  TextField(
-                    controller: passwordController,
-                    obscureText: obscurePassword,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => login(),
-                    decoration: InputDecoration(
-                      labelText: "Contraseña",
-                      prefixIcon: const Icon(
-                        Icons.lock_outline,
-                        color: verdePrincipal,
-                      ),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: verdeClaro,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            obscurePassword = !obscurePassword;
-                          });
-                        },
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFFF9F9F7),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE0E0E0),
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(
-                          color: verdePrincipal,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // ==============================
-                  // OLVIDASTE CONTRASEÑA
-                  // ==============================
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: recuperarContrasena,
-                      child: const Text(
-                        "¿Olvidaste tu contraseña?",
-                        style: TextStyle(
-                          color: verdeClaro,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // ==============================
-                  // INICIAR SESIÓN
-                  // ==============================
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: verdePrincipal,
-                        foregroundColor: Colors.white,
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: const Text(
-                        "Iniciar sesión",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // ==============================
-                  // CREAR CUENTA
-                  // ==============================
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
+                      child: Column(
+                        children: [
+                          // HOJA EN LUGAR DEL LOGO ANTERIOR
+                          Container(
+                            width: esMovil ? 100 : 112,
+                            height: esMovil ? 100 : 112,
+                            decoration: BoxDecoration(
+                              color: beigeFondo,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withAlpha(100),
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(35),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 7),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.eco_rounded,
+                              size: 62,
+                              color: verdePrincipal,
+                            ),
                           ),
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: verdePrincipal,
-                        side: const BorderSide(
-                          color: verdePrincipal,
-                          width: 1.5,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: const Text(
-                        "Crear cuenta",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
+
+                          const SizedBox(height: 20),
+
+                          Text(
+                            'ESSENTIALS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: beigeFondo,
+                              fontSize: esMovil ? 30 : 36,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 3,
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          const Text(
+                            'Gestiona tus alimentos\nsin desperdicios',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: beigeFondo,
+                              fontSize: 15,
+                              height: 1.5,
+                            ),
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          Container(
+                            width: 48,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: beigeFondo,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 28),
-
-                  // ==============================
-                  // DIVISOR
-                  // ==============================
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Divider(
-                          color: Colors.grey.withAlpha(80),
+                    // FORMULARIO
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 480,
                         ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          "ESSENTIALS",
-                          style: TextStyle(
-                            color: textoSecundario,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 1,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: esMovil ? 23 : 35,
+                            vertical: 30,
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                '¡Bienvenido de nuevo!',
+                                style: TextStyle(
+                                  color: textoPrincipal,
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              const Text(
+                                'Ingresa a tu cuenta para continuar.',
+                                style: TextStyle(
+                                  color: textoSecundario,
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
+                              ),
+
+                              const SizedBox(height: 26),
+
+                              TextField(
+                                controller: emailController,
+                                keyboardType:
+                                    TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autocorrect: false,
+                                decoration: decoracionCampo(
+                                  etiqueta: 'Correo electrónico',
+                                  sugerencia: 'ejemplo@correo.com',
+                                  icono: Icons.mail_outline_rounded,
+                                ),
+                              ),
+
+                              const SizedBox(height: 18),
+
+                              TextField(
+                                controller: passwordController,
+                                obscureText: obscurePassword,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) => login(),
+                                decoration: decoracionCampo(
+                                  etiqueta: 'Contraseña',
+                                  sugerencia: 'Ingresa tu contraseña',
+                                  icono: Icons.lock_outline_rounded,
+                                  sufijo: IconButton(
+                                    tooltip: obscurePassword
+                                        ? 'Mostrar contraseña'
+                                        : 'Ocultar contraseña',
+                                    onPressed: () {
+                                      setState(() {
+                                        obscurePassword =
+                                            !obscurePassword;
+                                      });
+                                    },
+                                    icon: Icon(
+                                      obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      color: verdeClaro,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 4),
+
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: loading
+                                      ? null
+                                      : recuperarContrasena,
+                                  child: const Text(
+                                    '¿Olvidaste tu contraseña?',
+                                    style: TextStyle(
+                                      color: verdeClaro,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 13),
+
+                              // BOTÓN VERDE: INICIAR SESIÓN
+                              SizedBox(
+                                height: 55,
+                                child: ElevatedButton(
+                                  onPressed: loading ? null : login,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: verdePrincipal,
+                                    foregroundColor: Colors.white,
+                                    disabledBackgroundColor:
+                                        verdePrincipal.withAlpha(130),
+                                    elevation: 2,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: loading
+                                      ? const SizedBox(
+                                          width: 23,
+                                          height: 23,
+                                          child:
+                                              CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Iniciar sesión',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 14),
+
+                              // BOTÓN VERDE: CREAR CUENTA
+                              SizedBox(
+                                height: 55,
+                                child: ElevatedButton(
+                                  onPressed: loading
+                                      ? null
+                                      : () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const RegisterScreen(),
+                                            ),
+                                          );
+                                        },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: verdeClaro,
+                                    foregroundColor: Colors.white,
+                                    elevation: 1,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Crear cuenta',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 27),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(
+                                      color:
+                                          verdePrincipal.withAlpha(40),
+                                    ),
+                                  ),
+                                  const Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    child: Icon(
+                                      Icons.eco_outlined,
+                                      color: verdeClaro,
+                                      size: 19,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Divider(
+                                      color:
+                                          verdePrincipal.withAlpha(40),
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 17),
+
+                              const Text(
+                                'Tu despensa, más organizada.\n'
+                                'Menos desperdicio.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: textoSecundario,
+                                  fontSize: 13,
+                                  height: 1.6,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: Divider(
-                          color: Colors.grey.withAlpha(80),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  const Text(
-                    "Al iniciar sesión aceptas nuestras "
-                    "políticas de privacidad.",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textoSecundario,
-                      fontSize: 12.5,
-                      height: 1.4,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
